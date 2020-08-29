@@ -43,11 +43,9 @@ void server(char * argv[]){
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = INADDR_ANY; //Use the default IP address of server
 	sin.sin_port = htons(port);
-	printf("Waiting on port: %d ...\n", port);
 
 	/* Generate public key */
 	char *pubKey = getPubKey();
-	printf("server public key: %s\n", pubKey);
 
 	/* setup passive open */
 	if((s = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -63,6 +61,8 @@ void server(char * argv[]){
 	addr_len = sizeof(client_addr);
 
 	while (1){
+		printf("Waiting on port: %d ...\n", port);
+
 		/* Get public key */
 		if(recvfrom(s, buf, sizeof(buf), 0,  (struct sockaddr *)&client_addr, &addr_len)==-1){
 			fprintf(stderr, "udpserver: failed to receive public key\n");
@@ -119,12 +119,11 @@ void server(char * argv[]){
 		
 		/* Compare the current checksum to the received checksum and respond appropriately */
 		if(strcmp(current_check_sum, received_check_sum)==0){
-			printf("Equal!\n");
-			sprintf(buf, "%ld, %ld", start_time.tv_sec, start_time.tv_usec);
+			sprintf(buf, "%s, %ld, %ld", asctime(date), start_time.tv_sec, start_time.tv_usec);
 			len = sizeof(buf);
 			/* Respond to the client with the result*/
 			if(sendto(s, buf, len, 0, (struct sockaddr *)&client_addr, sizeof(struct sockaddr))==-1){
-				fprintf(stderr, "udpserver: failed to send encrypted key\n");
+				fprintf(stderr, "udpserver: failed to send timestamp response\n");
     		exit(1);
 			}
 		} else {
@@ -133,7 +132,7 @@ void server(char * argv[]){
 			len = strlen(answer);
 			/* Respond to the client with the result*/
 			if(sendto(s, answer, len, 0, (struct sockaddr *)&client_addr, sizeof(struct sockaddr))==-1){
-				fprintf(stderr, "udpserver: failed to send encrypted key\n");
+				fprintf(stderr, "udpserver: failed to send error response\n");
     		exit(1);
 			}
 		}

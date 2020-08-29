@@ -74,7 +74,6 @@ void client(char * argv[]){
 	memcpy(server_key, buf, sizeof(buf));
 	bzero((char*)&buf, sizeof(buf));
 	char * server_key_decrypted = decrypt(server_key);
-	printf("encrypted key decrypted: %s\n", server_key_decrypted);
 
 	/* Load the file or string into the buffer */
 	char* input = argv[3];
@@ -104,6 +103,9 @@ void client(char * argv[]){
 		fprintf(stderr, "udpclient: failed to send public key\n");
 		exit(1);
 	}
+	
+	struct timeval start_time;
+	gettimeofday(&start_time, NULL);
 
 	/* Encrypt the message and send it */
 	char * encrypted_msg = encrypt(buf, server_key_decrypted);
@@ -118,28 +120,23 @@ void client(char * argv[]){
 		fprintf(stderr, "udpclient: failed to receive encrypted key\n");
 		exit(1);
 	}
-	printf("DEBUG: %s\n", buf);
+
+	struct timeval end_time;
+	gettimeofday(&end_time, NULL);
+
+	/* Check if the message was received properly by the server*/
 	if(strcmp(buf, "0")==0){ // String matches 0, which indicates an error
 		fprintf(stderr, "udpclient: server's calculated checksum does not match sent checksum\n");
 		exit(1);
-	} else { // Successfully sent the message and got a response confirming it
-		printf("response: %s\n", buf);
+	} else { // Successfully sent the message and got a response confirming it - print RTT
+		char * date = strtok(buf, ",");
+		char * tv_sec = strtok(NULL, ",");
+		char * tv_usec = strtok(NULL, ",");
+		printf("Server has successfully received the message at: \n%s", date);
+		printf("RTT: %ldus\n", end_time.tv_usec - start_time.tv_usec);
+		//printf("response: %s - %s - %s\n", date, tv_sec, tv_usec);
 	}
 	bzero((char*)&buf, sizeof(buf));
 
 	shutdown(s, 0);
-	/*
-	// main loop: get and send lines of text
-	while (fgets(buf, sizeof(buf), stdin)) {
-		buf[BUFSIZ-1] = '\0';
-		if (!strncmp(buf,"Exit",4)){
-			break;
-		}
-		len = strlen(buf) + 1;
-		if(sendto(s, buf, len, 0, (struct sockaddr *)&sin, sizeof(struct sockaddr))==-1){
-			fprintf(stderr, "udpclient: failed to send data\n");
-			exit(1);
-		}
-		printf("length: %d\n", len);
-	} */
 }
