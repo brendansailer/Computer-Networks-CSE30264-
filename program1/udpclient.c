@@ -33,8 +33,9 @@ void client(char * argv[]){
 	struct sockaddr_in sin;
 	char *host;
 	char buf[BUFSIZ];
+	char server_key[BUFSIZ];
+	char check_sum_buf[BUFSIZ];
 	int s, len;
-	unsigned long check_sum;
 
 	/* translate host name into peer's IP address */
 	host = argv[1];
@@ -65,11 +66,17 @@ void client(char * argv[]){
 	}
 	
 	/* Receive and decrypt public key */
-	if(recvfrom(s, buf, sizeof(buf), 0, (struct sockaddr *)&sin, sizeof(sin))==-1){
+	int addr_len = sizeof(sin);
+	if(recvfrom(s, buf, sizeof(buf), 0, (struct sockaddr *)&sin, &addr_len)==-1){
 		fprintf(stderr, "udpclient: failed to receive encrypted key\n");
 		exit(1);
 	}
+	memcpy(server_key, buf, sizeof(buf));
+	bzero((char*)&buf, sizeof(buf));
+	char * server_key_decrypted = decrypt(server_key);
+	printf("encrypted key decrypted: %s\n", server_key_decrypted);
 
+	/* Load the file or string into the buffer */
 	char* input = argv[3];
 	FILE* inputFile = fopen(input, "r");
 
@@ -86,14 +93,39 @@ void client(char * argv[]){
 	}
 	buf[BUFSIZ-1] = '\0';
 
-	check_sum = checksum(buf);
-	printf("Checksum sent: %lu\n", check_sum);	
-	
-	len = strlen(buf) + 1;
-	if(sendto(s, buf, len, 0, (struct sockaddr *)&sin, sizeof(struct sockaddr))==-1){
-		fprintf(stderr, "udpclient: failed to send data\n");
+	/* Calculate checksum and send it */
+	unsigned long check_sum = checksum(buf);
+	printf("Checksum sent: %lu\n", check_sum);
+	if(snprintf(check_sum_buf, sizeof(check_sum_buf), "%lu", check_sum) < 0){
+		fprintf(stderr, "udpclient: failed to snprintf checksum\n");
 		exit(1);
 	}
+	if(sendto(s, check_sum_buf, sizeof(check_sum_buf), 0, (struct sockaddr *)&sin, sizeof(struct sockaddr))==-1){
+		fprintf(stderr, "udpclient: failed to send public key\n");
+		exit(1);
+	}
+
+	/* Encrypt the message and send it */
+	char * encrypted_msg = encrypt(buf, server_key_decrypted);
+	if(sendto(s, encrypted_msg, strlen(encrypted_msg), 0, (struct sockaddr *)&sin, sizeof(struct sockaddr))==-1){
+		fprintf(stderr, "udpclient: failed to send the encrypted data\n");
+		exit(1);
+	}
+	bzero((char*)&buf, sizeof(buf));
+	
+	/* Receive response message from server */
+	if(recvfrom(s, buf, sizeof(buf), 0, (struct sockaddr *)&sin, &addr_len)==-1){
+		fprintf(stderr, "udpclient: failed to receive encrypted key\n");
+		exit(1);
+	}
+	printf("DEBUG: %s\n", buf);
+	if(strcmp(buf, "0")==0){ // String matches 0, which indicates an error
+		fprintf(stderr, "udpclient: server's calculated checksum does not match sent checksum\n");
+		exit(1);
+	} else { // Successfully sent the message and got a response confirming it
+		printf("response: %s\n", buf);
+	}
+	bzero((char*)&buf, sizeof(buf));
 
 	shutdown(s, 0);
 	/*

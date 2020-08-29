@@ -27,11 +27,12 @@ int main(int argc, char * argv[]) {
 
 void server(char * argv[]){
 	struct sockaddr_in sin, client_addr;
-	struct timeval start_time;
-	struct tm *date;
-	time_t t;
 	unsigned long check_sum;
+	char received_check_sum[BUFSIZ];
+	char current_check_sum[BUFSIZ];
 	char buf[BUFSIZ];
+	char client_key[BUFSIZ];
+	char * answer;
 	int len, addr_len;
 	int s;
 
@@ -46,6 +47,7 @@ void server(char * argv[]){
 
 	/* Generate public key */
 	char *pubKey = getPubKey();
+	printf("server public key: %s\n", pubKey);
 
 	/* setup passive open */
 	if((s = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -61,36 +63,81 @@ void server(char * argv[]){
 	addr_len = sizeof(client_addr);
 
 	while (1){
+		/* Get public key */
 		if(recvfrom(s, buf, sizeof(buf), 0,  (struct sockaddr *)&client_addr, &addr_len)==-1){
 			fprintf(stderr, "udpserver: failed to receive public key\n");
     	exit(1);
 		}
-		printf("Public Key: %s\n", buf);
+		memcpy(client_key, buf, sizeof(buf));
 		bzero((char*)&buf, sizeof(buf));
 
-		char* encryptedKey = encrypt(buf, pubKey);
-		len = strlen(encryptedKey)
-		if(sendto(s, encryptedKey, len, 0, (struct sockaddr *)&sin, sizeof(struct sockaddr))==-1){
+		/* Encrypt public key and send it back*/
+		char* encryptedKey = encrypt(pubKey, client_key);
+		len = strlen(encryptedKey);
+		if(sendto(s, encryptedKey, len, 0, (struct sockaddr *)&client_addr, sizeof(struct sockaddr))==-1){
 			fprintf(stderr, "udpserver: failed to send encrypted key\n");
     	exit(1);
 		}
 		
+		/* Receive the checksum */	
+		if(recvfrom(s, buf, sizeof(buf), 0,  (struct sockaddr *)&client_addr, &addr_len)==-1){
+			fprintf(stderr, "udpserver: failed to receive checksum\n");
+    	exit(1);
+		}
+		memcpy(received_check_sum, buf, sizeof(buf));
+		bzero((char*)&buf, sizeof(buf));
+	
+		/* Receive the message */	
 		if(recvfrom(s, buf, sizeof(buf), 0,  (struct sockaddr *)&client_addr, &addr_len)==-1){
 			fprintf(stderr, "udpserver: failed to receive message\n");
     	exit(1);
 		}
 
+		/* Get the current time */
+		struct timeval start_time;
 		gettimeofday(&start_time, NULL);
-		t = start_time.tv_sec;
-		date = localtime(&t);
+		time_t t = start_time.tv_sec;
+		struct tm *date = localtime(&t);
+		
+		/* Decrypt the message */
+		char * decrypted_msg = decrypt(buf);
 
-		check_sum = checksum(buf);
+		/* Get the checksum and load it into a buffer to compare later */
+		check_sum = checksum(decrypted_msg);
+		if(snprintf(current_check_sum, sizeof(current_check_sum), "%lu", check_sum) < 0){
+			fprintf(stderr, "udpserver: failed to snprintf checksum\n");
+    	exit(1);
+		}
 
 		printf("*** New Message ***\n");
 		printf("Received Time: %s", asctime(date));
-		printf("Received Message:\n%s\n", buf);
+		printf("Received Message:\n%s\n", decrypted_msg);
+		printf("Received Client Checksum: %s\n", received_check_sum);
 		printf("Calculated Checksum: %lu\n", check_sum);
 		printf("\n");
+		bzero((char*)&buf, sizeof(buf));
+		
+		/* Compare the current checksum to the received checksum and respond appropriately */
+		if(strcmp(current_check_sum, received_check_sum)==0){
+			printf("Equal!\n");
+			sprintf(buf, "%ld, %ld", start_time.tv_sec, start_time.tv_usec);
+			len = sizeof(buf);
+			/* Respond to the client with the result*/
+			if(sendto(s, buf, len, 0, (struct sockaddr *)&client_addr, sizeof(struct sockaddr))==-1){
+				fprintf(stderr, "udpserver: failed to send encrypted key\n");
+    		exit(1);
+			}
+		} else {
+			fprintf(stderr, "udpserver: recevied and calculated checksum do NOT match!\n");
+			answer = "0";
+			len = strlen(answer);
+			/* Respond to the client with the result*/
+			if(sendto(s, answer, len, 0, (struct sockaddr *)&client_addr, sizeof(struct sockaddr))==-1){
+				fprintf(stderr, "udpserver: failed to send encrypted key\n");
+    		exit(1);
+			}
+		}
+
 		bzero((char*)&buf, sizeof(buf));
 	}
 	close(s);
