@@ -1,5 +1,6 @@
 /*
 	Brendan Sailer
+	Netid: bsailer1
 	Program 1 - Computer Networks
 
 	Run: ./udpclient <Host Name> <Port Number> <Text to Send>
