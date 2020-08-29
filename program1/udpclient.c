@@ -28,19 +28,17 @@ int main(int argc, char * argv[]) {
 }
 
 void client(char * argv[]){
-	FILE *fp;
 	struct hostent *hp;
 	struct sockaddr_in sin;
-	char *host;
 	char buf[BUFSIZ];
 	char server_key[BUFSIZ];
 	char check_sum_buf[BUFSIZ];
-	int s, len;
+	int s;
 
 	/* translate host name into peer's IP address */
-	host = argv[1];
+	char * host = argv[1];
 	hp = gethostbyname(host);
-	if (!hp) {
+	if(!hp) {
 		fprintf(stderr, "udpclient: unknown host: %s\n", host);
 		exit(1);
 	}
@@ -59,7 +57,7 @@ void client(char * argv[]){
 
 	/* Generate and send public key */
 	char *pubKey = getPubKey();
-	len = strlen(pubKey) + 1;
+	int len = strlen(pubKey) + 1;
 	if(sendto(s, pubKey, len, 0, (struct sockaddr *)&sin, sizeof(struct sockaddr))==-1){
 		fprintf(stderr, "udpclient: failed to send public key\n");
 		exit(1);
@@ -79,16 +77,14 @@ void client(char * argv[]){
 	char* input = argv[3];
 	FILE* inputFile = fopen(input, "r");
 
-	if(inputFile){
-		printf("Sending file\n");
+	if(inputFile){ // Send the file
 		if(fread(buf, sizeof(char), BUFSIZ, inputFile) <= 0){
 			fprintf(stderr, "udpclient: failed to read from file\n");
 			exit(1);
 		}
 		fclose(inputFile);
-	} else{
-		printf("Sending string\n");
-		memcpy(buf, input, sizeof(input));
+	} else { // Send a string from stdin
+		memcpy(buf, input, strlen(input));
 	}
 	buf[BUFSIZ-1] = '\0';
 
@@ -103,7 +99,8 @@ void client(char * argv[]){
 		fprintf(stderr, "udpclient: failed to send public key\n");
 		exit(1);
 	}
-	
+
+	/* Get the start time */	
 	struct timeval start_time;
 	gettimeofday(&start_time, NULL);
 
@@ -121,6 +118,7 @@ void client(char * argv[]){
 		exit(1);
 	}
 
+	/* Get the end time */	
 	struct timeval end_time;
 	gettimeofday(&end_time, NULL);
 
