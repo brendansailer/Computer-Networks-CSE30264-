@@ -1,4 +1,4 @@
-In this directory, please find udpserver.c and udpclient.c along with File1, File2, and File3.txt 
+In this directory, please find udpserver.c and udpclient.c along with File1, File2, and File3.txt and pg1lib.h
 
 To compile my code, please type 'make' and the Makefile will make the two executables.
 

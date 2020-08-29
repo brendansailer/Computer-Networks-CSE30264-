@@ -5,3 +5,7 @@ udpclient: udpclient.c pg1lib.h
 
 udpserver: udpserver.c pg1lib.h
 	gcc -o udpserver udpserver.c -lcrypto -lz -I.
+
+clean:
+	rm udpclient
+	rm udpserver
