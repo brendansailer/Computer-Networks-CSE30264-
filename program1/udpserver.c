@@ -28,7 +28,6 @@ int main(int argc, char * argv[]) {
 
 void server(char * argv[]){
 	struct sockaddr_in sin, client_addr;
-	unsigned long check_sum;
 	char received_check_sum[BUFSIZ];
 	char current_check_sum[BUFSIZ];
 	char buf[BUFSIZ];
@@ -62,10 +61,10 @@ void server(char * argv[]){
 	while (1){
 		printf("Waiting on port: %d ...\n", port);
 
-		/* Get public key */
+		/* Get public key from client */
 		if(recvfrom(s, buf, sizeof(buf), 0,  (struct sockaddr *)&client_addr, &addr_len)==-1){
 			fprintf(stderr, "udpserver: failed to receive public key\n");
-    	exit(1);
+			exit(1);
 		}
 		memcpy(client_key, buf, sizeof(buf));
 		bzero((char*)&buf, sizeof(buf));
@@ -75,13 +74,13 @@ void server(char * argv[]){
 		int len = strlen(encryptedKey);
 		if(sendto(s, encryptedKey, len, 0, (struct sockaddr *)&client_addr, sizeof(struct sockaddr))==-1){
 			fprintf(stderr, "udpserver: failed to send encrypted key\n");
-    	exit(1);
+			exit(1);
 		}
 		
 		/* Receive the checksum */	
 		if(recvfrom(s, buf, sizeof(buf), 0,  (struct sockaddr *)&client_addr, &addr_len)==-1){
 			fprintf(stderr, "udpserver: failed to receive checksum\n");
-    	exit(1);
+			exit(1);
 		}
 		memcpy(received_check_sum, buf, sizeof(buf));
 		bzero((char*)&buf, sizeof(buf));
@@ -89,7 +88,7 @@ void server(char * argv[]){
 		/* Receive the message */	
 		if(recvfrom(s, buf, sizeof(buf), 0,  (struct sockaddr *)&client_addr, &addr_len)==-1){
 			fprintf(stderr, "udpserver: failed to receive message\n");
-    	exit(1);
+			exit(1);
 		}
 
 		/* Get the current time */
@@ -102,10 +101,10 @@ void server(char * argv[]){
 		char * decrypted_msg = decrypt(buf);
 
 		/* Get the checksum and load it into a buffer to compare later */
-		check_sum = checksum(decrypted_msg);
+		unsigned long check_sum = checksum(decrypted_msg);
 		if(snprintf(current_check_sum, sizeof(current_check_sum), "%lu", check_sum) < 0){
 			fprintf(stderr, "udpserver: failed to snprintf checksum\n");
-    	exit(1);
+			exit(1);
 		}
 
 		/* Print the relevant information to stdout */
@@ -119,13 +118,13 @@ void server(char * argv[]){
 		
 		/* Compare the current checksum to the received checksum and respond appropriately */
 		if(strcmp(current_check_sum, received_check_sum)==0){ // Normal response - no errors 
-			sprintf(buf, "%s, %ld, %ld", asctime(date), start_time.tv_sec, start_time.tv_usec);
+			sprintf(buf, "%s", asctime(date));
 			len = sizeof(buf);
 			
 			/* Respond to the client with the result*/
 			if(sendto(s, buf, len, 0, (struct sockaddr *)&client_addr, sizeof(struct sockaddr))==-1){
 				fprintf(stderr, "udpserver: failed to send timestamp response\n");
-    		exit(1);
+				exit(1);
 			}
 			bzero((char*)&buf, sizeof(buf));
 		} else { // There is an error, so respond with the value 0
@@ -136,7 +135,7 @@ void server(char * argv[]){
 			/* Respond to the client with the result*/
 			if(sendto(s, answer, len, 0, (struct sockaddr *)&client_addr, sizeof(struct sockaddr))==-1){
 				fprintf(stderr, "udpserver: failed to send error response\n");
-    		exit(1);
+				exit(1);
 			}
 		}
 	}

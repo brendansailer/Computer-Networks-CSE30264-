@@ -15,8 +15,6 @@
 #include <netdb.h>
 #include <pg1lib.h>
 
-#define SERVER_PORT 41042
-
 void client(char * argv[]);
 
 int main(int argc, char * argv[]) {
@@ -36,7 +34,7 @@ void client(char * argv[]){
 	char check_sum_buf[BUFSIZ];
 	int s;
 
-	/* translate host name into peer's IP address */
+	/* Translate host name into peer's IP address */
 	char * host = argv[1];
 	hp = gethostbyname(host);
 	if(!hp) {
@@ -44,13 +42,13 @@ void client(char * argv[]){
 		exit(1);
 	}
 
-	/* build address data structure */
+	/* Build address data structure */
 	bzero((char *)&sin, sizeof(sin));
 	sin.sin_family = AF_INET;
 	bcopy(hp->h_addr, (char *)&sin.sin_addr, hp->h_length);
 	sin.sin_port = htons(SERVER_PORT);
 
-	/* active open */
+	/* Active open */
 	if((s = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
 		fprintf(stderr, "udpclient: failed to open socket\n");
 		exit(1);
@@ -78,7 +76,7 @@ void client(char * argv[]){
 	char* input = argv[3];
 	FILE* inputFile = fopen(input, "r");
 
-	if(inputFile){ // Send the file
+	if(inputFile){ // Send a file
 		if(fread(buf, sizeof(char), BUFSIZ, inputFile) <= 0){
 			fprintf(stderr, "udpclient: failed to read from file\n");
 			exit(1);
@@ -97,7 +95,7 @@ void client(char * argv[]){
 		exit(1);
 	}
 	if(sendto(s, check_sum_buf, sizeof(check_sum_buf), 0, (struct sockaddr *)&sin, sizeof(struct sockaddr))==-1){
-		fprintf(stderr, "udpclient: failed to send public key\n");
+		fprintf(stderr, "udpclient: failed to send checksum\n");
 		exit(1);
 	}
 
@@ -128,12 +126,8 @@ void client(char * argv[]){
 		fprintf(stderr, "udpclient: server's calculated checksum does not match sent checksum\n");
 		exit(1);
 	} else { // Successfully sent the message and got a response confirming it - print RTT
-		char * date = strtok(buf, ",");
-		char * tv_sec = strtok(NULL, ",");
-		char * tv_usec = strtok(NULL, ",");
-		printf("Server has successfully received the message at: \n%s", date);
-		printf("RTT: %ldus\n", end_time.tv_usec - start_time.tv_usec);
-		//printf("response: %s - %s - %s\n", date, tv_sec, tv_usec);
+		printf("Server has successfully received the message at: \n%s", buf);
+		printf("RTT: %ldus\n", (end_time.tv_sec - start_time.tv_sec)*1000000 + (end_time.tv_usec - start_time.tv_usec));
 	}
 	bzero((char*)&buf, sizeof(buf));
 
