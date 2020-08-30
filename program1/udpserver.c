@@ -59,7 +59,7 @@ void server(char * argv[]){
 	int addr_len = sizeof(client_addr);
 
 	while (1){
-		printf("Waiting on port: %d ...\n", port);
+		printf("Waiting ...\n");
 
 		/* Get public key from client */
 		if(recvfrom(s, buf, sizeof(buf), 0,  (struct sockaddr *)&client_addr, &addr_len)==-1){

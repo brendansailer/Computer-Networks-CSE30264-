@@ -43,10 +43,16 @@ void client(char * argv[]){
 	}
 
 	/* Build address data structure */
+	int server_port = atoi(argv[2]);
+	if(server_port == 0){ // atoi returns 0 on bad input
+		fprintf(stderr, "udpclient: bad port address - please enter an integer port\n");
+		exit(1);
+	}
+
 	bzero((char *)&sin, sizeof(sin));
 	sin.sin_family = AF_INET;
 	bcopy(hp->h_addr, (char *)&sin.sin_addr, hp->h_length);
-	sin.sin_port = htons(SERVER_PORT);
+	sin.sin_port = htons(server_port);
 
 	/* Active open */
 	if((s = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
